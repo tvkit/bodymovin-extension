@@ -129,11 +129,13 @@ $.__bodymovin.bm_dataManager = (function () {
             if (layers[i].ty === layerTypes.precomp && layers[i].compId) {
                 comps.push({
                     id: layers[i].compId,
-                    layers: layers[i].layers
+                    layers: layers[i].layers,
+                    markers: layers[i].markers
                 });
                 separateComps(layers[i].layers, comps);
                 delete layers[i].compId;
                 delete layers[i].layers;
+                delete layers[i].markers;
             }
         }
     }
@@ -190,6 +192,9 @@ $.__bodymovin.bm_dataManager = (function () {
     }
     
     function saveData(data, destinationPath, config, callback) {
+        // $.level = 2;
+        // debugger;
+
         _endCallback = callback;
         _destinationPath = destinationPath;
         deleteExtraParams(data, config);

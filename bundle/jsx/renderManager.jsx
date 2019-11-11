@@ -10,6 +10,8 @@ $.__bodymovin.bm_renderManager = (function () {
     var layerTypes = $.__bodymovin.layerTypes;
     var bm_layerElement = $.__bodymovin.bm_layerElement;
     var bm_ProjectHelper = $.__bodymovin.bm_ProjectHelper;
+    var JSON = $.__bodymovin.JSON;
+
     
     var ob = {}, pendingLayers = [], pendingComps = [], destinationPath, fsDestinationPath, currentCompID, totalLayers, currentLayer, currentCompSettings, hasExpressionsFlag;
     var currentExportedComps = [];
@@ -118,6 +120,11 @@ $.__bodymovin.bm_renderManager = (function () {
             }
             if (layerData.ty === layerTypes.precomp && layerData.render !== false && layerData.compId) {
                 currentExportedComps.push(layerData.compId);
+                var markers = [];
+                exportCompMarkers(layerInfo.source, framerate, markers);
+                if (markers.length) {
+                    layerData.markers = markers;
+                }
                 if(deepTraversing){
                     layerData.layers = [];
                     createLayers(layerInfo.source, layerData.layers, framerate, deepTraversing);
@@ -127,6 +134,10 @@ $.__bodymovin.bm_renderManager = (function () {
     }
     
     function render(comp, destination, fsDestination, compSettings) {
+        // alert("render");
+        // $.level = 2;
+        // debugger;
+
         app.beginUndoGroup("Render Bodymovin Animation");
         currentExportedComps = [];
         hasExpressionsFlag = false;
@@ -163,7 +174,7 @@ $.__bodymovin.bm_renderManager = (function () {
         ob.renderData.firstFrame = exportData.ip * comp.frameRate;
         createLayers(comp, exportData.layers, exportData.fr, true);
         exportExtraComps(exportData);
-        exportCompMarkers(exportData, comp);
+        exportCompMarkers(comp, comp.frameRate, exportData.markers);
         exportMotionBlur(exportData, comp);
         totalLayers = pendingLayers.length;
         currentLayer = 0;
@@ -181,19 +192,19 @@ $.__bodymovin.bm_renderManager = (function () {
         }
     }
 
-    function exportCompMarkers(exportData, comp) {
+    function exportCompMarkers(comp, framerate, markers) {
         
         if(comp.markerProperty && comp.markerProperty.numKeys >= 1) {
             var markerProperty = comp.markerProperty;
-            var markersList = exportData.markers;
+            // var markersList = exportData.markers;
             var len = markerProperty.numKeys, markerElement;
-            for (i = 0; i < len; i += 1) {
-                markerData = {};
+            for (var i = 0; i < len; i += 1) {
+                var markerData = {};
                 markerElement = markerProperty.keyValue(i + 1);
-                markerData.tm = markerProperty.keyTime(i + 1) * exportData.fr;
+                markerData.tm = markerProperty.keyTime(i + 1) * framerate;
                 markerData.cm = markerElement.comment;
-                markerData.dr = markerElement.duration * exportData.fr;
-                markersList.push(markerData);
+                markerData.dr = markerElement.duration * framerate;
+                markers.push(markerData);
             }
         }
     }
