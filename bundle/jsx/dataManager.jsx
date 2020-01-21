@@ -192,8 +192,8 @@ $.__bodymovin.bm_dataManager = (function () {
     }
     
     function saveData(data, destinationPath, config, callback) {
-        // $.level = 2;
-        // debugger;
+        $.level = 2;
+        debugger;
 
         _endCallback = callback;
         _destinationPath = destinationPath;

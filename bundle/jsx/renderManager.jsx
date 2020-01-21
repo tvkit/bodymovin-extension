@@ -74,6 +74,9 @@ $.__bodymovin.bm_renderManager = (function () {
     }
     
     function createLayers(comp, layers, framerate, deepTraversing) {
+        // $.level = 2;
+        // debugger;
+
         var i, len = comp.layers.length, layerInfo, layerData, prevLayerData;
         for (i = 0; i < len; i += 1) {
             layerInfo = comp.layers[i + 1];
