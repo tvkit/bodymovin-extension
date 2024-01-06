@@ -1,9 +1,13 @@
 /*jslint vars: true , plusplus: true, devel: true, nomen: true, regexp: true, indent: 4, maxerr: 50 */
-/*global PropertyValueType, KeyframeInterpolationType, $ */
+/*global app, PropertyValueType, KeyframeInterpolationType, $ */
 $.__bodymovin.bm_keyframeHelper = (function () {
     var bm_eventDispatcher = $.__bodymovin.bm_eventDispatcher;
     var bm_generalUtils = $.__bodymovin.bm_generalUtils;
     var bm_expressionHelper = $.__bodymovin.bm_expressionHelper;
+    var settingsHelper = $.__bodymovin.bm_settingsHelper;
+    var bakeExpressions = $.__bodymovin.bm_keyframeBakerHelper;
+    var essentialPropertiesHelper = $.__bodymovin.bm_essentialPropertiesHelper;
+    var renderHelper = $.__bodymovin.bm_renderHelper;
     var ob = {}, property, j = 1, jLen, beziersArray, averageSpeed, duration, bezierIn, bezierOut, frameRate;
     var hasRovingKeyframes = false;
     
@@ -91,7 +95,7 @@ $.__bodymovin.bm_keyframeHelper = (function () {
     }
 
     function exportKeys(prop, frRate, stretch, keyframeValues) {
-        var exportOldFormat = $.__bodymovin.bm_renderManager.shouldExportOldFormat();
+        var exportOldFormat = settingsHelper.shouldExportOldFormat();
         var currentExpression = '';
         property = prop;
         var propertyValueType = property.propertyValueType;
@@ -402,21 +406,81 @@ $.__bodymovin.bm_keyframeHelper = (function () {
             }
         }
     }
+
+    function trimKeyframes(keyframes, frameRate) {
+
+        var range = renderHelper.getCurrentRange();
+        var time = range[0];
+        var index = 0;
+        var totalFrames = (range[1] - range[0]) * frameRate;
+        var initFrame = range[0] * frameRate
+        var endFrame = range[1] * frameRate
+        var i, len = keyframes.length;
+        // bm_eventDispatcher.log('RANGE: ')
+        // bm_eventDispatcher.log(range[0])
+        // bm_eventDispatcher.log(range[1])
+        // bm_eventDispatcher.log('initFrame: ' + initFrame)
+        // bm_eventDispatcher.log('endFrame: ' + endFrame)
+        var count = 0
+        for (i = 0; i < len; i += 1) {
+            if (keyframes[i + 1] && keyframes[i + 1].t < initFrame) {
+                keyframes.splice(i, 1);
+                i -= 1;
+                len -= 1;
+            } else if(keyframes[i - 1] && keyframes[i - 1].t > endFrame) {
+                keyframes.splice(i, 1);
+                i -= 1
+                len -= 1
+            }
+        }
+
+        return keyframes
+    }
     
     function exportKeyframes(prop, frRate, stretch, keyframeValues) {
+        settingsHelper = $.__bodymovin.bm_settingsHelper;
         var returnOb = {}
-        if (prop.numKeys <= 1) {
-            returnOb.a = 0;
+        if (settingsHelper.shouldExportEssentialProperties()) {
+            if (settingsHelper.shouldExportEssentialPropertiesAsSlots()) {
+                var essentialPropId = essentialPropertiesHelper.searchPropertyId(prop);
+                if (essentialPropId) {
+                    returnOb.sid = essentialPropId;
+                }
+            } else {
+                var essentialProperty = essentialPropertiesHelper.searchProperty(prop);
+                if (essentialProperty) {
+                    for (var key in essentialProperty) {
+                        if (essentialProperty.hasOwnProperty(key)) {
+                            returnOb[key] = essentialProperty[key];
+                        }
+                    }
+                    if(prop.propertyIndex && !settingsHelper.shouldIgnoreExpressionProperties()) {
+                        returnOb.ix = prop.propertyIndex;
+                    }
+                    return returnOb;
+                }
+            }
+        }
+        if (bm_expressionHelper.shouldBakeExpression(prop)) {
+            returnOb = bakeExpressions(prop, frRate);
         } else {
-            returnOb.a = 1;
+            if (prop.numKeys <= 1) {
+                returnOb.a = 0;
+            } else {
+                returnOb.a = 1;
+            }
+            searchRovingKeyframes(prop);
+            var keys = exportKeys(prop, frRate, stretch, keyframeValues);
+            if (settingsHelper.shouldTrimData() && prop.numKeys > 1) {
+                keys = trimKeyframes(keys, frRate)
+            }
+            returnOb.k = keys;
+            if(prop.propertyIndex && !settingsHelper.shouldIgnoreExpressionProperties()) {
+                returnOb.ix = prop.propertyIndex;
+            }
+            bm_expressionHelper.checkExpression(prop, returnOb);
+            restoreRovingKeyframes(prop);
         }
-        searchRovingKeyframes(prop);
-        returnOb.k = exportKeys(prop, frRate, stretch, keyframeValues);
-        if(prop.propertyIndex && !$.__bodymovin.bm_renderManager.shouldIgnoreExpressionProperties()) {
-            returnOb.ix = prop.propertyIndex;
-        }
-        bm_expressionHelper.checkExpression(prop, returnOb);
-        restoreRovingKeyframes(prop);
         return returnOb;
     }
     

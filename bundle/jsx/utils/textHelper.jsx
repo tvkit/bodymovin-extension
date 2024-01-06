@@ -1,11 +1,14 @@
 /*jslint vars: true , plusplus: true, devel: true, nomen: true, regexp: true, indent: 4, maxerr: 50 */
-/*global layerElement, File, app, ParagraphJustification, bm_textAnimatorHelper, bm_keyframeHelper, bm_sourceHelper, bm_textShapeHelper*/
+/*global $,layerElement, File, app, ParagraphJustification, bm_textAnimatorHelper, bm_keyframeHelper, bm_sourceHelper, bm_textShapeHelper*/
 $.__bodymovin.bm_textHelper = (function () {
     'use strict';
     var bm_keyframeHelper = $.__bodymovin.bm_keyframeHelper;
     var bm_textAnimatorHelper = $.__bodymovin.bm_textAnimatorHelper;
     var bm_expressionHelper = $.__bodymovin.bm_expressionHelper;
     var bm_eventDispatcher = $.__bodymovin.bm_eventDispatcher;
+    var annotationsManager = $.__bodymovin.bm_annotationsManager;
+    var essentialPropertiesHelper = $.__bodymovin.bm_essentialPropertiesHelper;
+    var settingsHelper = $.__bodymovin.bm_settingsHelper;
     var ob = {};
     
     function getJustification(value) {
@@ -26,6 +29,28 @@ $.__bodymovin.bm_textHelper = (function () {
             return 6;
         }
     }
+
+    function findLineHeight(textDocument) {
+        var baselineLocs = textDocument.baselineLocs
+        var fontSize = textDocument.fontSize
+        var isFound = false
+        var counter = 1
+        var lineHeight = fontSize
+        while(!isFound) {
+            if (baselineLocs.length > 1 + counter * 4) {
+                lineHeight = (baselineLocs[1 + counter * 4] - baselineLocs[1]) / counter
+                if (lineHeight < 100000) {
+                    isFound = true
+                } else {
+                    lineHeight = fontSize
+                }
+            } else {
+                isFound = true
+            }
+            counter += 1
+        }
+        return lineHeight
+    }
     
     function exportTextDocumentData(layerInfo, data, frameRate, stretch) {
         var duplicatedLayerInfo = layerInfo.duplicate();
@@ -39,11 +64,28 @@ $.__bodymovin.bm_textHelper = (function () {
         }
         var arr = [];
         data.k = arr;
+
+        if (settingsHelper.shouldExportEssentialProperties()) {
+            if (settingsHelper.shouldExportEssentialPropertiesAsSlots()) {
+                var essentialPropId = essentialPropertiesHelper.searchPropertyId(layerInfo.property("Source Text"));
+                if (essentialPropId) {
+                    data.sid = essentialPropId;
+                }
+            } else {
+                // TODO: implement once AE supports it
+                /*var essentialProperty = essentialPropertiesHelper.searchProperty(layerInfo.property("Source Text"));
+                if (essentialProperty) {
+                    data.k = essentialProperty;
+                    return;
+                }*/
+            }
+        }
         var numKeys = sourceTextProp.numKeys;
         var j, jLen = numKeys ? numKeys : 1;
         if(jLen === 0){
             jLen = 1;
         }
+        var additionalTextDocumentData = annotationsManager.searchTextProperties(layerInfo);
         for(j=0;j<jLen;j+=1){
             var ob = {};
             var textDocument, time;
@@ -61,22 +103,22 @@ $.__bodymovin.bm_textHelper = (function () {
             var i, len;
             ob.s = textDocument.fontSize;
             ob.f = textDocument.font;
-            $.__bodymovin.bm_sourceHelper.addFont(textDocument.font, textDocument.fontFamily, textDocument.fontStyle);
+            $.__bodymovin.bm_sourceHelper.addFont(textDocument.font, textDocument.fontFamily, textDocument.fontStyle, textDocument.fontLocation);
             if(textDocument.allCaps){
                 ob.t = textDocument.text.toUpperCase();
+                ob.ca = 1;
             } else {
                 ob.t = textDocument.text;
+                ob.ca = textDocument.smallCaps ? 2 : 0;
             }
             len = ob.t.length;
             ob.j = getJustification(textDocument.justification);
             ob.tr = textDocument.tracking;
-            if(textDocument.baselineLocs && textDocument.baselineLocs.length > 5){
+            if (textDocument.leading) {
+                ob.lh = textDocument.leading;
+            } else if(textDocument.baselineLocs && textDocument.baselineLocs.length > 5){
                 if(textDocument.baselineLocs[5] > textDocument.baselineLocs[1]){
-                    ob.lh = textDocument.baselineLocs[5] - textDocument.baselineLocs[1];
-                    // Fix when there is an empty newLine between first and second line. AE return an extremely large number.
-                    if(ob.lh > 10000) {
-                        ob.lh = ob.s*1.2;
-                    }
+                    ob.lh = findLineHeight(textDocument)
                 } else {
                     ob.lh = ob.s*1.2;
                 }
@@ -104,6 +146,11 @@ $.__bodymovin.bm_textHelper = (function () {
                 ob.sw = textDocument.strokeWidth;
                 if (textDocument.applyFill) {
                     ob.of = textDocument.strokeOverFill;
+                }
+            }
+            for (var s in additionalTextDocumentData) {
+                if (additionalTextDocumentData.hasOwnProperty(s)) {
+                    ob[s] = additionalTextDocumentData[s]
                 }
             }
             //TODO check if it need to be multiplied by stretch
@@ -146,9 +193,12 @@ $.__bodymovin.bm_textHelper = (function () {
             ob.m = pathOptions.property("Path").value - 1;
             ob.f = bm_keyframeHelper.exportKeyframes(pathOptions.property("First Margin"), frameRate, stretch);
             ob.l = bm_keyframeHelper.exportKeyframes(pathOptions.property("Last Margin"), frameRate, stretch);
-            ob.a = pathOptions.property("Force Alignment").value;
-            ob.p = pathOptions.property("Perpendicular To Path").value;
-            ob.r = pathOptions.property("Reverse Path").value;
+            ob.a = bm_keyframeHelper.exportKeyframes(pathOptions.property("Force Alignment"), frameRate, stretch);
+            // ob.a = pathOptions.property("Force Alignment").value;
+            ob.p = bm_keyframeHelper.exportKeyframes(pathOptions.property("Perpendicular To Path"), frameRate, stretch);
+            // ob.p = pathOptions.property("Perpendicular To Path").value;
+            ob.r = bm_keyframeHelper.exportKeyframes(pathOptions.property("Reverse Path"), frameRate, stretch);
+            // ob.r = pathOptions.property("Reverse Path").value;
         }
     }
     
@@ -200,6 +250,7 @@ $.__bodymovin.bm_textHelper = (function () {
     }
     
     ob.exportText = exportText;
+    ob.exportTextDocumentData = exportTextDocumentData;
     
     return ob;
     

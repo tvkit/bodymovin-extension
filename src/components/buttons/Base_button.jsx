@@ -89,7 +89,7 @@ class BaseButton extends React.Component{
     return (
       <button 
         disabled={this.props.disabled}
-        title={this.props.text} 
+        title={this.props.alt || this.props.text} 
         className={containerClasses} 
         onClick={this.props.onClick} 
         onMouseEnter={this.mouseEnterHandler} 
@@ -107,7 +107,8 @@ class BaseButton extends React.Component{
 }
 
 BaseButton.defaultProps = {
-	disabled: false
+	disabled: false,
+	alt: '',
 }
 
 export default BaseButton

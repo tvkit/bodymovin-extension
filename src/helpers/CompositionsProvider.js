@@ -1,11 +1,20 @@
-import csInterface from './CSInterfaceHelper'
+import csInterface, {
+	sendAsyncCommand,
+	sendCommandWithListeners,
+	getXMPValue,
+} from './CSInterfaceHelper'
 import extensionLoader from './ExtensionLoader'
 import {dispatcher} from './storeDispatcher'
 import actions from '../redux/actions/actionTypes'
 import {versionFetched, appVersionFetched} from '../redux/actions/generalActions'
+import {reportsSaved} from '../redux/actions/reportsActions'
+import {processExpression} from '../redux/actions/renderActions'
 import {saveFile as bannerSaveFile} from './bannerHelper'
 import {saveFile as avdSaveFile} from './avdHelper'
+import {saveFile as smilSaveFile} from './smilHelper'
 import {splitAnimation} from './splitAnimationHelper'
+import {createSlots} from './lottieSlots'
+import { getSimpleSeparator } from './osHelper'
 
 csInterface.addEventListener('bm:compositions:list', function (ev) {
 	if(ev.data) {
@@ -91,6 +100,9 @@ csInterface.addEventListener('bm:image:process', function (ev) {
 		if(data && typeof data.compression_rate === 'string') {
 			data.compression_rate = Number(data.compression_rate)
 		}
+		if(data && typeof data.compression_rate === 'string') {
+			data.compression_rate = Number(data.compression_rate)
+		}
 		//End fix for AE 2014
 
 		dispatcher({ 
@@ -105,9 +117,23 @@ csInterface.addEventListener('bm:image:process', function (ev) {
 csInterface.addEventListener('bm:project:id', function (ev) {
 	if(ev.data) {
 		let data = (typeof ev.data === "string") ? JSON.parse(ev.data) : ev.data
-		let id = data.id
+		const id = data.id
+		const name = data.name
 		dispatcher({ 
 				type: actions.PROJECT_SET_ID,
+				id: id,
+				name: name,
+		})
+	} else {
+	}
+})
+
+csInterface.addEventListener('bm:temp:id', function (ev) {
+	if(ev.data) {
+		let data = (typeof ev.data === "string") ? JSON.parse(ev.data) : ev.data
+		let id = data.id
+		dispatcher({ 
+				type: actions.PROJECT_SET_TEMP_ID,
 				id: id
 		})
 	} else {
@@ -154,6 +180,21 @@ csInterface.addEventListener('bm:create:avd', async function (ev) {
 	}
 })
 
+csInterface.addEventListener('bm:create:smil', async function (ev) {
+	if(ev.data) {
+		try {
+			let data = (typeof ev.data === "string") ? JSON.parse(ev.data) : ev.data;
+			await smilSaveFile(data.origin, data.destination)
+			const eScript = "$.__bodymovin.bm_smilExporter.saveSMILDataSuccess()";
+	    	csInterface.evalScript(eScript);
+		} catch(err) {
+	    	const eScript = '$.__bodymovin.bm_smilExporter.saveSMILFailed()';
+	    	csInterface.evalScript(eScript);
+		} 
+	} else {
+	}
+})
+
 csInterface.addEventListener('bm:create:rive', function (ev) {
 	if(ev.data) {
 		let data = (typeof ev.data === "string") ? JSON.parse(ev.data) : ev.data;
@@ -161,7 +202,7 @@ csInterface.addEventListener('bm:create:rive', function (ev) {
 				type: actions.RIVE_SAVE_DATA,
 				origin: data.origin,
 				destination: data.destination,
-				fileName: data.fileName,
+				fileName: decodeURIComponent(data.fileName),
 		})
 	} else {
 	}
@@ -214,7 +255,7 @@ csInterface.addEventListener('bm:split:animation', async function (ev) {
 		if(ev.data) {
 			const data = (typeof ev.data === "string") ? JSON.parse(ev.data) : ev.data
 			////
-			const splitResponse = await splitAnimation(data.origin, data.destination, data.fileName, data.time);
+			const splitResponse = await splitAnimation(data.origin, data.destination, decodeURIComponent(data.fileName), data.time);
 			csInterface.evalScript('$.__bodymovin.bm_standardExporter.splitSuccess(' + splitResponse + ')');
 		} else {
 			throw new Error('Missing data')
@@ -224,14 +265,65 @@ csInterface.addEventListener('bm:split:animation', async function (ev) {
 	}
 })
 
+csInterface.addEventListener('bm:create:slots', async function (ev) {
+	try {
+		if(ev.data) {
+			const data = (typeof ev.data === "string") ? JSON.parse(ev.data) : ev.data
+			////
+			await createSlots(data.origin, data.destination, decodeURIComponent(data.fileName), data.prettyPrint);
+			csInterface.evalScript('$.__bodymovin.bm_standardExporter.slotsSuccess()');
+		} else {
+			throw new Error('Missing data')
+		}
+	} catch(err) {
+		csInterface.evalScript('$.__bodymovin.bm_bannerExporter.splitFailed()');
+	}
+})
+
+csInterface.addEventListener('bm:report:saved', async function (ev) {
+	try {
+		if(ev.data) {
+			const data = (typeof ev.data === "string") ? JSON.parse(ev.data) : ev.data
+			////
+			dispatcher(reportsSaved(data.compId, data.reportPath));
+		} else {
+			throw new Error('Missing data')
+		}
+	} catch(err) {
+		csInterface.evalScript('$.__bodymovin.bm_bannerExporter.splitFailed()');
+	}
+})
+
+csInterface.addEventListener('bm:expression:process', async function (ev) {
+	try {
+		if(ev.data) {
+			const data = (typeof ev.data === "string") ? JSON.parse(ev.data) : ev.data
+			////
+			dispatcher(processExpression(data));
+		} else {
+			throw new Error('Missing data')
+		}
+	} catch(err) {
+		csInterface.evalScript('$.__bodymovin.bm_bannerExporter.splitFailed()');
+	}
+})
+
 function getCompositions() {
-	let prom = new Promise(function(resolve, reject){
+	return new Promise(function(resolve, reject){
 		extensionLoader.then(function(){
 			csInterface.evalScript('$.__bodymovin.bm_compsManager.updateData()');
 			resolve();
 		})
 	})
-	return prom
+}
+
+function createTempIdHeader() {
+	return new Promise(function(resolve, reject){
+		extensionLoader.then(function(){
+			csInterface.evalScript('$.__bodymovin.bm_projectManager.createTempId()');
+			resolve();
+		})
+	})
 }
 
 function getProjectPath() {
@@ -255,18 +347,24 @@ function setLottiePaths(paths) {
 	})
 }
 
-function getDestinationPath(comp, alternatePath) {
+function getDestinationPath(comp, alternatePath, shouldUseCompNameAsDefault) {
 	let destinationPath = ''
+	const fileName = shouldUseCompNameAsDefault ? comp.name : 'data'
 	if(comp.absoluteURI) { 
 		destinationPath = comp.absoluteURI
 	} else if(alternatePath) {
 		alternatePath = alternatePath.split('\\').join('\\\\')
+		const delimiter = getSimpleSeparator()
+		if (alternatePath.charAt(alternatePath.length - 1) !== delimiter) {
+			alternatePath += delimiter;
+		}
+		alternatePath += fileName
 		if(comp.settings.export_modes.standalone) {
-			alternatePath += 'data.js'
+			alternatePath += '.js'
 		} else if (comp.settings.export_modes.banner && comp.settings.banner.zip_files) {
-			alternatePath += 'data.zip'
+			alternatePath += '.zip'
 		} else {
-			alternatePath += 'data.json'
+			alternatePath += '.json'
 		}
 		destinationPath = alternatePath
 	}
@@ -277,7 +375,7 @@ function getDestinationPath(comp, alternatePath) {
 		extension = 'zip'
 	}
 	extensionLoader.then(function(){
-		var eScript = '$.__bodymovin.bm_compsManager.searchCompositionDestination(' + comp.id + ',"' + destinationPath+ '","' + extension + '")'
+		var eScript = '$.__bodymovin.bm_compsManager.searchCompositionDestination(' + comp.id + ',"' + destinationPath+ '","' + (fileName + '.' + extension) + '")'
 		csInterface.evalScript(eScript)
 	})
 	let prom = new Promise(function(resolve, reject){
@@ -366,9 +464,15 @@ function getVersionFromExtension() {
 	return prom
 }
 
-function imageProcessed(result) {
+function imageProcessed(result, data) {
 	extensionLoader.then(function(){
-		var eScript = '$.__bodymovin.bm_sourceHelper.imageProcessed(';
+		var eScript = ''
+		if(data.assetType === 'audio') {
+			eScript += '$.__bodymovin.bm_audioSourceHelper.assetProcessed(';
+
+		} else {
+			eScript += '$.__bodymovin.bm_sourceHelper.imageProcessed(';
+		}
 		eScript += result.extension === 'jpg';
 		eScript += ',';
 		if(result.encoded) {
@@ -383,6 +487,108 @@ function imageProcessed(result) {
 
 function initializeServer() {
 	csInterface.requestOpenExtension("com.bodymovin.bodymovin_server", "");
+}
+
+function navigateToLayer(compositionId, layerIndex) {
+	extensionLoader.then(function(){
+		var eScript = `
+		$.__bodymovin.bm_compsManager.navigateToLayer(${compositionId},${layerIndex})
+	    `
+	    csInterface.evalScript(eScript);
+	})
+}
+
+async function getCompositionTimelinePosition() {
+	return sendCommandWithListeners(
+		'$.__bodymovin.bm_compsManager.getTimelinePosition',
+		[],
+		'bm:composition:timelinePosition',
+		''
+	);
+}
+
+async function setCompositionTimelinePosition(progress) {
+	return sendAsyncCommand(
+		'$.__bodymovin.bm_compsManager.setTimelinePosition',
+		[progress],
+	)
+	
+}
+
+function expressionProcessed(id, data) {
+	sendAsyncCommand(
+		'$.__bodymovin.bm_expressionHelper.saveExpression',
+		[data, id],
+	)
+}
+
+async function getUserFolders() {
+	return sendCommandWithListeners(
+		'$.__bodymovin.bm_projectManager.getUserFolders',
+		[],
+		'bm:user:folders',
+		''
+	)
+}
+
+async function getSavingPath(path) {
+	return sendCommandWithListeners(
+		'$.__bodymovin.bm_projectManager.setDestinationPath',
+		[
+			path,
+		],
+		'bm:destination:selected',
+		'bm:destination:cancelled'
+	)
+}
+
+async function saveProjectDataToXMP(data) {
+	return new Promise(async function(resolve, reject) {
+		var eScript = '$.__bodymovin.bm_XMPHelper.setMetadata("config", \'' + JSON.stringify(data) + '\')';
+		csInterface.evalScript(eScript);
+		setStorageLocation('xmp');
+		resolve();
+	})
+}
+
+async function getProjectDataFromXMP() {
+	return getXMPValue(
+		"config",
+		true,
+	)
+}
+
+async function setStorageLocation(location) {
+	return sendAsyncCommand(
+		'$.__bodymovin.bm_XMPHelper.setMetadata',
+		["storageLocation", location],
+	)
+}
+
+async function getStorageLocation() {
+	return getXMPValue(
+		"storageLocation",
+		false,
+	)
+}
+
+async function getCompressedState() {
+	try {
+		const isCompressed = await getXMPValue(
+			"isCompressed",
+			false,
+		)
+		return isCompressed;
+	} catch (error) {
+		return false;
+	}
+}
+
+async function setCompressedState(value) {
+	return sendAsyncCommand(
+		'$.__bodymovin.bm_XMPHelper.setMetadata',
+		["isCompressed", value],
+	)
 }
 
 export {
@@ -401,4 +607,17 @@ export {
 	riveFileSaveSuccess,
 	riveFileSaveFailed,
 	getProjectPath,
+	navigateToLayer,
+	getCompositionTimelinePosition,
+	setCompositionTimelinePosition,
+	getUserFolders,
+	expressionProcessed,
+	getSavingPath,
+	saveProjectDataToXMP,
+	getProjectDataFromXMP,
+	setStorageLocation,
+	getStorageLocation,
+	getCompressedState,
+	setCompressedState,
+	createTempIdHeader,
 }

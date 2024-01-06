@@ -9,6 +9,9 @@ import PreviewView from './preview/Preview'
 import FontsView from './fonts/Fonts'
 import PlayerView from './player/Player'
 import FileImportView from './fileImport/FileImport'
+import AnnotationsView from './annotations/Annotations'
+import ReportsView from './report/Reports'
+import SupportedFeatures from './supported_features/SupportedFeatures'
 
 function getView(route) {
 	switch(route) {
@@ -26,6 +29,12 @@ function getView(route) {
         return <PlayerView />
       case routes.importFile:
         return <FileImportView />
+      case routes.annotations:
+        return <AnnotationsView />
+      case routes.reports:
+        return <ReportsView />
+      case routes.supported_features:
+        return <SupportedFeatures />
       default:
         return <Compositions />
     }

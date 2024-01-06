@@ -7,6 +7,9 @@ import alerts from './alerts'
 import paths from './paths'
 import routes from './routes'
 import importer from './importer'
+import annotations from './annotations'
+import reports from './reports'
+import supported_features from './supported_features'
 
 export default combineReducers({
   routes,
@@ -17,4 +20,7 @@ export default combineReducers({
   alerts,
   paths,
   importer,
+  annotations,
+  reports,
+  supported_features,
 })

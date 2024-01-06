@@ -33,13 +33,23 @@ function checkRenderable(items, list) {
 }
 
 const getCompositionsList = createSelector(
-  [ getFilter, getItems, getList, getSelected ],
-  (filter, items, list, showOnlySelected) => {
+  [
+    getFilter,
+    getItems,
+    getList,
+    getSelected,
+  ],
+  (
+    filter,
+    items,
+    list,
+    showOnlySelected,
+  ) => {
   	return {
 		canRender: checkRenderable(items, list),
 		filter: filter,
     showOnlySelected: showOnlySelected,
-		visibleItems: getVisibleItems(items, list, filter, showOnlySelected) 
+		visibleItems: getVisibleItems(items, list, filter, showOnlySelected),
   	}
   }
 )

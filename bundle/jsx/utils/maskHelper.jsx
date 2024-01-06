@@ -2,29 +2,11 @@
 /*global $, MaskMode*/
 $.__bodymovin.bm_maskHelper = (function () {
     var bm_keyframeHelper = $.__bodymovin.bm_keyframeHelper;
+    var bm_eventDispatcher = $.__bodymovin.bm_eventDispatcher;
+    var settingsHelper = $.__bodymovin.bm_settingsHelper;
+    var getMaskMode = $.__bodymovin.getMaskType;
     var ob = {};
 
-    function getMaskMode(num) {
-        switch (num) {
-        case MaskMode.NONE:
-            return 'n';
-        case MaskMode.ADD:
-            return 'a';
-        case MaskMode.SUBTRACT:
-            return 's';
-        case MaskMode.INTERSECT:
-            return 'i';
-        case MaskMode.LIGHTEN:
-            return 'l';
-        case MaskMode.DARKEN:
-            return 'd';
-        case MaskMode.DIFFERENCE:
-            return 'f';
-        default:
-            return undefined;
-        }
-    }
-    
     function exportMasks(layerInfo, layerData, frameRate) {
         if (!(layerInfo.mask && layerInfo.mask.numProperties > 0)) {
             return;
@@ -44,7 +26,7 @@ $.__bodymovin.bm_maskHelper = (function () {
             $.__bodymovin.bm_shapeHelper.checkVertexCount(shapeData.pt.k);
             shapeData.o = bm_keyframeHelper.exportKeyframes(maskElement.property('Mask Opacity'), frameRate, stretch);
             shapeData.x = bm_keyframeHelper.exportKeyframes(maskElement.property('Mask Expansion'), frameRate, stretch);
-            if ($.__bodymovin.bm_renderManager.shouldIncludeNotSupportedProperties()) {
+            if (settingsHelper.shouldIncludeNotSupportedProperties()) {
                 shapeData.f = bm_keyframeHelper.exportKeyframes(maskElement.property('Mask Feather'), frameRate, stretch);
             }
             shapeData.nm = maskElement.name;
