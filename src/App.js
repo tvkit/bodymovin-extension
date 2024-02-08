@@ -7,17 +7,20 @@ import Footer from './components/footer/Footer'
 import reducer  from './redux/reducers/index'
 import createSagaMiddleware from 'redux-saga'
 import rootSaga from './redux/sagas'
+import extendScriptMiddleware from './redux/middlewares/extendScriptMiddleware'
+import generalMiddleware from './redux/middlewares/generalMiddleware'
 import './App.css';
 import './reset.css';
 import {setDispatcher} from './helpers/storeDispatcher'
-import {getCompositions} from './redux/actions/compositionActions'
-import {getPaths, getVersion} from './redux/actions/generalActions'
+import {appInitialized, appFocused} from './redux/actions/generalActions'
 
 const sagaMiddleware = createSagaMiddleware()
 
 let composeStore = compose(
   applyMiddleware(
-    sagaMiddleware
+    sagaMiddleware,
+    extendScriptMiddleware,
+    generalMiddleware,
   )
 )(createStore)
 
@@ -32,12 +35,10 @@ class App extends Component {
   }
 
   componentDidMount() {
-    store.dispatch(getCompositions())
     window.onfocus = function(){
-      store.dispatch(getCompositions())
+      store.dispatch(appFocused())
     }
-    store.dispatch(getPaths())
-    store.dispatch(getVersion())
+    store.dispatch(appInitialized())
   }
 
 
@@ -45,7 +46,7 @@ class App extends Component {
 
     return (
       <Provider store={store}>
-        <div style={{width:'100%',height:'100%'}}>
+        <div style={{width:'100%', height:'100%'}}>
           <ViewsContainer />
           {/*<Router history={browserHistory}>
             <Route path="/" component={Compositions} />

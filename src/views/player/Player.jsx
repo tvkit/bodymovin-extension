@@ -6,7 +6,8 @@ import Bodymovin from '../../components/bodymovin/bodymovin'
 import anim from '../../assets/animations/bm.json'
 import {openInBrowser, getPlayer} from '../../helpers/CompositionsProvider'
 import Variables from '../../helpers/styles/variables'
-import {goToComps} from '../../redux/actions/compositionActions'
+import {goToComps, clearCache} from '../../redux/actions/compositionActions'
+import BaseHeader from '../../components/header/Base_Header'
 
 const styles = StyleSheet.create({
     container: {
@@ -14,11 +15,13 @@ const styles = StyleSheet.create({
       height: '100%',
       display: 'flex',
       flexDirection:'column',
-      padding: '10px 30px',
+      padding: '10px 10px 30px 10px',
       backgroundColor :'#474747'
     },
     back_container: {
-      textAlign: 'right'
+      display: 'flex',
+      justifyContent: 'space-between',
+
     },
     anim_container: {
       textAlign: 'center'
@@ -47,7 +50,8 @@ const styles = StyleSheet.create({
       color: Variables.colors.green
     },
     buttons_container: {
-      textAlign: 'center'
+      textAlign: 'center',
+      marginBottom: '16px',
     },
     buttonSeparator: {
       width: '10px',
@@ -72,8 +76,9 @@ class Player extends React.Component {
   render() {
     return (
       <div className={css(styles.container)}>
+        <BaseHeader />
         <div className={css(styles.back_container)}>
-          <BaseButton text={'‹ Back'} onClick={this.props.goToComps} type="gray" />
+          <BaseButton text={'Clear Caché'} type='green' onClick={this.props.clearCache} />
         </div>
         <div className={css(styles.anim_container)}>
           <Bodymovin animationData={anim} autoplay={true} loop={true}>
@@ -101,7 +106,8 @@ class Player extends React.Component {
   }
 }
 const mapDispatchToProps = {
-  goToComps: goToComps
+  goToComps: goToComps,
+  clearCache: clearCache,
 }
 
 export default connect(null, mapDispatchToProps)(Player)

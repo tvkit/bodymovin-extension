@@ -1,6 +1,10 @@
+/*global XML, $, app*/
+
 $.__bodymovin.bm_ProjectHelper = (function(){
 
     var bm_generalUtils = $.__bodymovin.bm_generalUtils;
+    var bm_eventDispatcher = $.__bodymovin.bm_eventDispatcher;
+    var JSON = $.__bodymovin.JSON;
     var fileString = '';
 
     var ob = {};
@@ -29,6 +33,17 @@ $.__bodymovin.bm_ProjectHelper = (function(){
         }
     }
 
+    function sortFunction(a, b) {
+        var a_0 = Number(a[0].toString())
+        var b_0 = Number(b[0].toString())
+        if (a_0 === b_0) {
+            return 0;
+        }
+        else {
+            return (a_0 < b_0) ? -1 : 1;
+        }
+    }
+
     function getGradientData(shapeNavigation, numKeys){
         if(!fileString){
             getProjectData();
@@ -40,9 +55,18 @@ $.__bodymovin.bm_ProjectHelper = (function(){
         numKeys = numKeys ? numKeys : 1;
         var gradientIndex = 0, navigationIndex = 0;
         var i = 0, len = shapeNavigation.length;
-        while(i<len){
-            var encoded = unescape(encodeURIComponent(shapeNavigation[i]))
-            navigationIndex = fileString.indexOf(encoded,navigationIndex);
+        while (i < len) {
+            var encoded = unescape(encodeURIComponent(shapeNavigation[i] + 'LIST'));
+            var stringIndex = fileString.indexOf(encoded, navigationIndex + 1);
+            if (stringIndex === -1) {
+                encoded = unescape(encodeURIComponent(shapeNavigation[i] + ' LIST'));
+                stringIndex = fileString.indexOf(encoded, navigationIndex + 1);
+            }
+            if (stringIndex === -1) {
+                encoded = unescape(encodeURIComponent(shapeNavigation[i]));
+                stringIndex = fileString.indexOf(encoded, navigationIndex + 1);
+            }
+            navigationIndex = stringIndex;
             i += 1;
         }
         gradientIndex = fileString.indexOf('ADBE Vector Grad Colors',navigationIndex);
@@ -62,7 +86,7 @@ $.__bodymovin.bm_ProjectHelper = (function(){
         while(currentKey < numKeys){
             var gradientData = {};
             gradientIndex = fileString.indexOf('<prop.map',gradientIndex);
-            if(hasNoGradColorData || gradientIndex > limitIndex || (gradientIndex == -1 && limitIndex == Number.MAX_VALUE)){
+            if(hasNoGradColorData || gradientIndex > limitIndex || (gradientIndex === -1 && limitIndex === Number.MAX_VALUE)){
                 gradientData.c = [[0,1,1,1],[1,0,0,0]];
                 maxColors = Math.max(maxColors,2);
             } else {
@@ -100,8 +124,18 @@ $.__bodymovin.bm_ProjectHelper = (function(){
                 i = 0;
                 len = colors.length();
                 var colorsArr = [];
-                while(i<len){
-                    floats = colors[i]['prop.list'][0]['prop.pair'][0]['array'][0].float;
+                var sortedColors = [];
+                while (i < len) {
+                    sortedColors.push(colors[i]['prop.list'][0]['prop.pair'][0]['array'][0].float);
+                    i += 1;
+                }
+
+                sortedColors.sort(sortFunction);
+
+                i = 0;
+
+                while (i < len) {
+                    floats = sortedColors[i];
                     op = [];
                     op.push(bm_generalUtils.roundNumber(Number(floats[0].toString()),3));
                     op.push(bm_generalUtils.roundNumber(Number(floats[2].toString()),3));
@@ -111,7 +145,7 @@ $.__bodymovin.bm_ProjectHelper = (function(){
                     midPosition = bm_generalUtils.roundNumber(Number(floats[1].toString()),3);
                     if(i<len-1 /*&& midPosition !== 0.5*/){
                         op = [];
-                        nextFloats = colors[i+1]['prop.list'][0]['prop.pair'][0]['array'][0].float;
+                        nextFloats = sortedColors[i+1];
                         midPoint = Number(floats[0].toString()) + (Number(nextFloats[0].toString())-Number(floats[0].toString()))*midPosition;
                         var midPointValueR = Number(floats[2].toString()) + (Number(nextFloats[2].toString())-Number(floats[2].toString()))*0.5;
                         var midPointValueG = Number(floats[3].toString()) + (Number(nextFloats[3].toString())-Number(floats[3].toString()))*0.5;
@@ -172,8 +206,8 @@ $.__bodymovin.bm_ProjectHelper = (function(){
                     }
                 }
                 for(j=0;j<maxOpacities;j+=1){
-                    for(var k = 0; k < 2; k += 1){
-                        mergedArr.push(keyframes[i].o[j][k]);
+                    for(var l = 0; l < 2; l += 1){
+                        mergedArr.push(keyframes[i].o[j][l]);
                     }
                 }
             }

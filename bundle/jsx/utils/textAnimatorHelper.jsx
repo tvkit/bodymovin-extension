@@ -1,10 +1,10 @@
 /*jslint vars: true , plusplus: true, devel: true, nomen: true, regexp: true, indent: 4, maxerr: 50 */
-/*global bm_keyframeHelper, bm_eventDispatcher, bm_expressionHelper*/
+/*global $, bm_keyframeHelper, bm_eventDispatcher, bm_expressionHelper*/
 $.__bodymovin.bm_textAnimatorHelper = (function () {
     'use strict';
-    var bm_eventDispatcher = $.__bodymovin.bm_eventDispatcher;
     var bm_keyframeHelper = $.__bodymovin.bm_keyframeHelper;
     var bm_expressionHelper = $.__bodymovin.bm_expressionHelper;
+    var settingsHelper = $.__bodymovin.bm_settingsHelper;
     var ob = {};
     
     function exportTextSelectors(layerInfo, frameRate, stretch) {
@@ -12,7 +12,6 @@ $.__bodymovin.bm_textAnimatorHelper = (function () {
 
         function exportSelector(selectorProperty) {
             if (!selectorProperty) return;
-
             var ob = {};
             var advancedProperty = selectorProperty.property('ADBE Text Range Advanced');
             ob.t = 0;
@@ -22,6 +21,7 @@ $.__bodymovin.bm_textAnimatorHelper = (function () {
             ob.b = advancedProperty.property("ADBE Text Range Type2").value;
             ob.rn = advancedProperty.property("ADBE Text Randomize Order").value;
             ob.sh = advancedProperty.property("ADBE Text Range Shape").value;
+            ob.sm =  bm_keyframeHelper.exportKeyframes(advancedProperty.property('ADBE Text Selector Smoothness'), frameRate, stretch);
 
             // 
             var rangeUnits = advancedProperty.property('ADBE Text Range Units').value;
@@ -88,11 +88,11 @@ $.__bodymovin.bm_textAnimatorHelper = (function () {
             });
         }
 
-        var export_array = selectors.length > 1 && $.__bodymovin.bm_renderManager.shouldIncludeNotSupportedProperties();
+        var export_array = selectors.length > 1 && settingsHelper.shouldIncludeNotSupportedProperties();
 
         return export_array ? selectors : selectors[0];
     }
-    
+
     function exportAnimationSelector(layerInfo, frameRate, stretch) {
         var ob = {};
         var i, len, property, propertyName;
@@ -164,6 +164,12 @@ $.__bodymovin.bm_textAnimatorHelper = (function () {
                     break;
                 case 'ADBE Text Skew Axis':
                     ob.sa = bm_keyframeHelper.exportKeyframes(property, frameRate, stretch);
+                    break;
+                case 'ADBE Text Blur':
+                    ob.bl = bm_keyframeHelper.exportKeyframes(property, frameRate, stretch);
+                    break;
+                case 'ADBE Text Line Spacing':
+                    ob.ls = bm_keyframeHelper.exportKeyframes(property, frameRate, stretch);
                     break;
                 }
             }

@@ -17,3 +17,7 @@ signer.bat
 bodymovinCert.p12
 bodymovin.zxp
 ZXPSignCmd.exe
+package-lock.json
+test/
+
+.history/

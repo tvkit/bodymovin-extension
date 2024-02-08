@@ -1,13 +1,18 @@
 import React from 'react'
 import {connect} from 'react-redux'
 import { StyleSheet, css } from 'aphrodite'
-import {stopRender} from '../../redux/actions/renderActions'
-import {goToComps} from '../../redux/actions/compositionActions'
+import {
+  stopRender,
+  previewAnimation,
+} from '../../redux/actions/renderActions'
+import {goToComps, goToReports} from '../../redux/actions/compositionActions'
 import render_selector from '../../redux/selectors/render_selector'
 import RenderItem from './list/RenderItem'
 import BaseButton from '../../components/buttons/Base_button'
 import Variables from '../../helpers/styles/variables'
-import {goToFolder} from '../../helpers/CompositionsProvider'
+import {
+  goToFolder,
+} from '../../helpers/CompositionsProvider'
 import Bodymovin from '../../components/bodymovin/bodymovin'
 import fluido from '../../assets/animations/fluido.json'
 
@@ -96,7 +101,38 @@ const styles = StyleSheet.create({
       marginBottom: '20px',
       marginTop: '20px',
       textAlign: 'center'
-    }
+    },
+    templateModal: {
+      width: '100%',
+      height: '100%',
+      position: 'absolute',
+      top: '0',
+      left: '0',
+      padding: '20px',
+      backgroundColor: 'rgba(0,0,0,0.75)',
+
+    },
+    templateModalContent: {
+      width: '100%',
+      height: '100%',
+      backgroundColor: '#474747',
+      padding: '8px',
+    },
+    templateModalContentTitle: {
+      color: Variables.colors.white,
+      fontSize: '16px',
+      marginBottom: '24px',
+    },
+    templateModalContentList: {
+      color: Variables.colors.white,
+      fontSize: '12px',
+    },
+    templateModalContentListItem: {
+      color: Variables.colors.white,
+      backgroundColor: Variables.colors.gray_darkest,
+      padding: '8px 4px',
+      margin: '4px 0',
+    },
 })
 
 class Render extends React.Component {
@@ -105,13 +141,21 @@ class Render extends React.Component {
     super()
     this.endRender = this.endRender.bind(this)
     this.getItem = this.getItem.bind(this)
+    this.state = {
+      templateErrors: null,
+    }
   }
 
   getItem(item) {
-    return (<RenderItem 
+    return (
+      <RenderItem 
         key={item.id} 
         item={item}
-        navigateToFolder={this.navigateToFolder} />)
+        navigateToFolder={this.navigateToFolder} 
+        navigateToReports={this.props.goToReports} 
+        preview={this.preview} 
+        template={this.template} 
+      />)
   }
 
 	getItems() {
@@ -129,6 +173,22 @@ class Render extends React.Component {
 
   navigateToFolder(item) {
     goToFolder(item.destination)
+  }
+
+  preview = (item) => {
+    this.props.previewAnimation(item.destination)
+  }
+
+  template = (item) => {
+    this.setState({
+      templateErrors: item.settings.template.errors,
+    })
+  }
+
+  closeTemplate = () => {
+    this.setState({
+      templateErrors: null,
+    })
   }
 
 
@@ -158,6 +218,16 @@ class Render extends React.Component {
 	    			<BaseButton text={finishText} type='green' onClick={this.endRender}></BaseButton>
 	    		</div>
     		</div>
+        {this.state.templateErrors && <div className={css(styles.templateModal)} onClick={this.closeTemplate}>
+          <div className={css(styles.templateModalContent)}>
+            <div className={css(styles.templateModalContentTitle)}>The animation does not comply to the template requirements</div>
+            <ul className={css(styles.templateModalContentList)}>
+              {this.state.templateErrors.map((templateError, templateErrorIndex) => {
+                return <li key={templateErrorIndex} className={css(styles.templateModalContentListItem)}>{templateError.message}</li>
+              })}
+            </ul>
+          </div>
+        </div>}
     	</div>
     	);
   }
@@ -169,7 +239,9 @@ function mapStateToProps(state) {
 
 const mapDispatchToProps = {
   stopRender: stopRender,
-  goToComps: goToComps
+  goToComps: goToComps,
+  goToReports: goToReports,
+  previewAnimation: previewAnimation,
 }
 
 export default connect(mapStateToProps, mapDispatchToProps)(Render)

@@ -1,7 +1,6 @@
 /*jslint vars: true , plusplus: true, devel: true, nomen: true, regexp: true, indent: 4, maxerr: 50 */
-/*global app, $, PropertyValueType, bm_eventDispatcher*/
+/*global app, $, PropertyValueType*/
 $.__bodymovin.bm_generalUtils = (function () {
-    'use strict';
     var bm_eventDispatcher = $.__bodymovin.bm_eventDispatcher;
     var ob = {};
     ob.Gtlym = {};
@@ -71,7 +70,7 @@ $.__bodymovin.bm_generalUtils = (function () {
                 if (property.propertyValueType !== PropertyValueType.NO_VALUE && property.value !== undefined) {
                     ob.value = property.value.toString();
                 } else {
-                    ob.value = '--- No Value:' + ' ---';
+                    ob.value = '--- No Value: ---';
                 }
             }
         }
@@ -138,7 +137,66 @@ $.__bodymovin.bm_generalUtils = (function () {
         }
         return ob;
     }
-    
+
+    function extendPrototype(destination, origin) {
+        for (var s in origin.prototype) {
+            if (origin.prototype.hasOwnProperty(s)) {
+                destination.prototype[s] = origin.prototype[s];
+            }
+        }
+    }
+
+    function sanitizeName(name) {
+        
+        var i, len = name.length;
+        var finalString = '';
+        for (i = 0; i <len; i += 1) {
+            var charCode = name.charCodeAt(i);
+            // High surrogates D800–DBFF
+            // Low surrogates DC00–DFFF
+            try {
+                if (charCode >= 0xD800 &&  charCode <= 0xDBFF) {
+                    var nextCharCode = name.charCodeAt(i + 1);
+                    // if the next character is not part of the low surrogate range
+                    // it means that the character is cut off 
+                    // and we will skip the pair from the sanitized text
+                    if (nextCharCode >= 0xDC00 &&  nextCharCode <= 0xDFFF) {
+                        finalString += name.charAt(i);
+                    } else {
+                        
+                    }
+                } else {
+                    finalString += name.charAt(i);
+                }
+                
+            } catch (error) {
+                finalString += name.charAt(i);
+            }
+        }
+        return finalString;
+    }
+
+    function trimText(text) {
+        return text.replace(/^\s+|\s+$/g, '');
+    }
+
+    function cloneObject(ob, shallow) {
+        if (shallow === undefined) {
+            shallow = true;
+        }
+        var clone = {};
+        for (var s in ob) {
+            if (ob.hasOwnProperty(s)) {
+                if(typeof s === 'object' && !shallow) {
+                    clone[s] = cloneObject(ob[s], shallow);
+                } else {
+                    clone[s] = ob[s];
+                }
+            }
+        }
+        return clone;
+    }
+
     ob.random = random;
     ob.roundNumber = roundNumber;
     ob.setTimeout = setTimeout;
@@ -147,6 +205,10 @@ $.__bodymovin.bm_generalUtils = (function () {
     ob.iterateOwnProperties = iterateOwnProperties;
     ob.convertPathsToAbsoluteValues = convertPathsToAbsoluteValues;
     ob.findAttributes = findAttributes;
+    ob.extendPrototype = extendPrototype;
+    ob.sanitizeName = sanitizeName;
+    ob.cloneObject = cloneObject;
+    ob.trimText = trimText;
     
     return ob;
     

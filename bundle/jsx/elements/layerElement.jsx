@@ -1,5 +1,5 @@
 /*jslint vars: true , plusplus: true, devel: true, nomen: true, regexp: true, indent: 4, maxerr: 50 */
-/*global  bm_timeremapHelper, bm_shapeHelper, bm_generalUtils, CompItem, PlaceholderSource, AVLayer, CameraLayer, LightLayer, ShapeLayer, TextLayer, TrackMatteType, bm_sourceHelper, bm_transformHelper, bm_maskHelper, bm_textHelper, bm_effectsHelper, bm_layerStylesHelper, bm_cameraHelper*/
+/* global  $, bm_timeremapHelper, bm_shapeHelper, bm_generalUtils, CompItem, PlaceholderSource, AVLayer, CameraLayer, LightLayer, ShapeLayer, TextLayer, TrackMatteType, bm_sourceHelper, bm_transformHelper, bm_maskHelper, bm_textHelper, bm_effectsHelper, bm_layerStylesHelper, bm_cameraHelper*/
 
 $.__bodymovin.bm_layerElement = (function () {
     'use strict';
@@ -14,16 +14,26 @@ $.__bodymovin.bm_layerElement = (function () {
     var bm_layerStylesHelper = $.__bodymovin.bm_layerStylesHelper;
     var bm_cameraHelper = $.__bodymovin.bm_cameraHelper;
     var bm_textHelper = $.__bodymovin.bm_textHelper;
+    var bm_imageSeqHelper = $.__bodymovin.bm_imageSeqHelper;
     var bm_blendModes = $.__bodymovin.bm_blendModes;
+    var bm_audioHelper = $.__bodymovin.bm_audioHelper;
+    var bm_dataHelper = $.__bodymovin.bm_dataHelper;
+    var settingsHelper = $.__bodymovin.bm_settingsHelper;
 
     var completeCallback;
 
     var ob = {};
     
-    function prepareLayer(layerInfo, ind) {
+    function prepareLayer(layerInfo, shouldIncludeAVAssets) {
         var layerData = {};
         var layerType = getLayerType(layerInfo);
-        if (layerType === layerTypes.audio || layerType === layerTypes.light || layerType === layerTypes.adjustment || layerType === layerTypes.pholderStill || layerType === layerTypes.pholderVideo) {
+
+        if (layerType === layerTypes.light
+            || layerType === layerTypes.pholderStill
+            || layerType === layerTypes.pholderVideo
+            || (layerType === layerTypes.audio && !settingsHelper.shouldRenderAudio())
+            )
+        {
             layerData.isValid = false;
             layerData.render = false;
         }
@@ -36,8 +46,8 @@ $.__bodymovin.bm_layerElement = (function () {
             layerData.isGuide = true;
             layerData.render = false;
         }
-
-        if (layerInfo.enabled === false) {
+        
+        if (layerInfo.enabled === false && layerType !== layerTypes.data) {
             layerData.enabled = false;
             layerData.render = false;
         }
@@ -47,7 +57,8 @@ $.__bodymovin.bm_layerElement = (function () {
             layerData.ddd = 0;
         }
         layerData.ind = layerInfo.index;
-        layerData.ty = layerType;
+        layerData.ty = layerType === layerTypes.adjustment ? layerTypes.nullLayer : layerType;
+        layerData.isAdjustment = layerType === layerTypes.adjustment;
         layerData.nm = layerInfo.name;
         var layerAttributes = bm_generalUtils.findAttributes(layerInfo.name);
         if(layerAttributes.ln){
@@ -78,6 +89,11 @@ $.__bodymovin.bm_layerElement = (function () {
                 layerData.tt = 4;
                 break;
             }
+            if ('trackMatteLayer' in layerInfo) {
+                layerData.tp = layerInfo.trackMatteLayer.index;
+            } else {
+                layerData.tp = layerInfo.index - 1;
+            }
         } else if (layerInfo.isTrackMatte) {
             if (layerInfo.isValid !== false) {
                 layerData.render = true;
@@ -94,21 +110,43 @@ $.__bodymovin.bm_layerElement = (function () {
             return;
         }
         var bm_sourceHelper = $.__bodymovin.bm_sourceHelper;
+        var bm_dataSourceHelper = $.__bodymovin.bm_dataSourceHelper;
         var layerType = layerData.ty;
         var sourceId;
         if (layerType === layerTypes.precomp) {
-            sourceId = bm_sourceHelper.checkCompSource(layerInfo, layerType);
+            sourceId = bm_sourceHelper.checkCompSource(layerInfo);
             if (sourceId !== false) {
                 layerData.refId = sourceId;
             } else {
                 //layerData.compId = bm_generalUtils.random(7);
-                layerData.compId = 'comp_' + compCount;
+                if (settingsHelper.shouldUseCompNamesAsIds()) {
+                    layerData.compId = layerInfo.source.name;
+                } else {
+                    layerData.compId = 'comp_' + compCount;
+                }
+                layerData.compName = layerInfo.source.name;
+                layerData.frameRate = layerInfo.source.frameRate;
+                layerData.preserveNestedFrameRate = layerInfo.source.preserveNestedFrameRate ? 1 : undefined;
                 compCount += 1;
                 layerData.refId = layerData.compId;
                 bm_sourceHelper.setCompSourceId(layerInfo.source, layerData.compId);
             }
         } else if (layerType === layerTypes.still) {
             layerData.refId = bm_sourceHelper.checkImageSource(layerInfo);
+        } else if (layerType === layerTypes.imageSeq) {
+            sourceId = bm_sourceHelper.searchSequenceSource(layerInfo);
+            layerData.refId = sourceId;
+            if (!sourceId) {
+                sourceId = bm_sourceHelper.addSequenceSource(layerInfo);
+                layerData.refId = sourceId;
+                layerData.compId = sourceId;
+            }
+        } else if (layerType === layerTypes.video) {
+            layerData.refId = bm_sourceHelper.checkVideoSource(layerInfo);
+        } else if (layerType === layerTypes.audio) {
+            layerData.refId = bm_sourceHelper.checkAudioSource(layerInfo);
+        } else if (layerType === layerTypes.data) {
+            layerData.refId = bm_dataSourceHelper.checkDataSource(layerInfo);
         }
     }
     
@@ -124,7 +162,7 @@ $.__bodymovin.bm_layerElement = (function () {
         layerData.sr = layerInfo.stretch/100;
         
         var lType = layerData.ty;
-        if (lType !== layerTypes.camera) {
+        if (lType !== layerTypes.camera && lType !== layerTypes.audio && lType !== layerTypes.data) {
             bm_transformHelper.exportTransform(layerInfo, layerData, frameRate);
             bm_maskHelper.exportMasks(layerInfo, layerData, frameRate);
             bm_effectsHelper.exportEffects(layerInfo, layerData, frameRate, includeHiddenData);
@@ -147,13 +185,24 @@ $.__bodymovin.bm_layerElement = (function () {
         } else if (lType === layerTypes.precomp) {
             layerData.w = layerInfo.width;
             layerData.h = layerInfo.height;
+        } else if (lType === layerTypes.imageSeq) {
+            bm_imageSeqHelper.exportStills(layerInfo, layerData, frameRate);
         } else if (lType === layerTypes.camera) {
             bm_cameraHelper.exportCamera(layerInfo, layerData, frameRate);
+        } else if (lType === layerTypes.audio) {
+            bm_audioHelper.exportAudio(layerInfo, layerData, frameRate);
+        } else if (lType === layerTypes.data) {
+            bm_dataHelper.exportData(layerInfo, layerData, frameRate);
         }
         layerData.ip = layerInfo.inPoint * frameRate;
         layerData.op = layerInfo.outPoint * frameRate;
         layerData.st = layerInfo.startTime * frameRate;
-        if ($.__bodymovin.bm_renderManager.shouldIncludeNotSupportedProperties()) {
+        layerData.ct = layerInfo.collapseTransformation ? 1 : undefined;
+        if (lType === layerTypes.audio) {
+            // Settings inpoint equal to start point because audio is rasterized and trimmed
+            layerData.st = layerData.ip;
+        }
+        if (settingsHelper.shouldIncludeNotSupportedProperties()) {
             layerData.cp = layerInfo.collapseTransformation;
             if (layerInfo.motionBlur) {
                 layerData.mb = true;
