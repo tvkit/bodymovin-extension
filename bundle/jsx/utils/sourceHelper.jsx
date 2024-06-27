@@ -141,7 +141,7 @@ $.__bodymovin.bm_sourceHelper = (function () {
     function formatImageName(name) {
         var sanitizedName = '';
         var totalChars = name.lastIndexOf('.');
-        var extensionIndex = name.lastIndexOf('.')
+        var extensionIndex = -1; // TODO Byrne name.lastIndexOf('.')
         var extension = extensionIndex !== -1 ? name.substr(extensionIndex) : '.png'
         if(totalChars < 0){
             totalChars = name.length;
